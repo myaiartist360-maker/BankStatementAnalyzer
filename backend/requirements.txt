@@ -1,0 +1,30 @@
+# ── Core API ─────────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+pydantic>=2.7.1
+pydantic-settings>=2.2.1
+
+# ── PDF Processing ────────────────────────────────────────────────────────────
+pdfplumber>=0.11.0          # Digital PDF text + table extraction
+pypdf>=4.2.0                # PDF metadata, encryption detection
+pikepdf>=8.15.1             # Password-protected PDF decryption
+pdf2image>=1.17.0           # Scanned PDF → PIL images for OCR
+Pillow                      # Image processing (unpinned to fit python version)
+
+# ── OCR (optional — requires Tesseract installed separately) ──────────────────
+pytesseract>=0.3.10
+
+# ── Date & Math ───────────────────────────────────────────────────────────────
+python-dateutil>=2.9.0
+numpy                       # (unpinned to fit python version)
+scipy                       # (unpinned to fit python version)
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.1
+httpx>=0.27.0               # Async HTTP client (health checks)
+
+# ── Dev / Testing ─────────────────────────────────────────────────────────────
+pytest>=8.2.0
+pytest-asyncio>=0.23.6
+httpx                       # Used by TestClient
