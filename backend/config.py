@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     backend_port: int = 8000
     results_dir: str = "results"
+    feedback_dir: str = "feedback"
 
     # ── Balance Thresholds ────────────────────────────────────────────────────
     min_balance_threshold: float = 10_000.0        # ₹10,000 MAB

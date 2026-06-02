@@ -5,6 +5,8 @@ import TransactionTable from '../components/TransactionTable'
 import RiskFlags from '../components/RiskFlags'
 import TamperReport from '../components/TamperReport'
 import MonthlyBreakdown from '../components/MonthlyBreakdown'
+import CreditAssessment from '../components/CreditAssessment'
+import FeedbackPanel from '../components/FeedbackPanel'
 
 const API = '/api/v1'
 
@@ -96,6 +98,7 @@ export default function ResultsPage() {
           { label: 'EMI Bounces',  value: s.emi_bounces, sub: `Cheque bounces: ${s.inward_cheque_bounces}`, accent: s.emi_bounces > 0 ? 'var(--red-dim)' : 'var(--green-dim)' },
           { label: 'Gambling',  value: s.gambling_transaction_count, sub: s.gambling_transaction_count ? fmt(s.gambling_total_amount) : 'Clean', accent: s.gambling_transaction_count ? 'var(--purple-dim)' : 'var(--green-dim)' },
           { label: 'High-Risk Flags', value: (data.high_risk_flags || []).length, sub: 'See Risk tab', accent: (data.high_risk_flags || []).length ? 'var(--red-dim)' : 'var(--green-dim)' },
+          { label: 'Credit Score', value: data.credit_assessment ? `${data.credit_assessment.credit_score} · ${data.credit_assessment.risk_band}` : '—', sub: data.credit_assessment ? `FOIR ${data.credit_assessment.foir != null ? Math.round(data.credit_assessment.foir * 100) + '%' : '—'}` : 'See Credit tab', accent: 'var(--cyan-dim, var(--brand-dim))' },
         ].map(stat => (
           <div key={stat.label} className="stat-card" style={{ '--accent-color': stat.accent }}>
             <div className="stat-label">{stat.label}</div>
@@ -107,7 +110,7 @@ export default function ResultsPage() {
 
       {/* Tabs */}
       <div className="tabs">
-        {[['overview','📊 Overview'],['transactions','📋 Transactions'],['risk','🚨 Risk'],['tamper','🔍 Tamper']].map(([id,label]) => (
+        {[['overview','📊 Overview'],['credit','📈 Credit'],['transactions','📋 Transactions'],['risk','🚨 Risk'],['tamper','🔍 Tamper'],['feedback','💬 Feedback']].map(([id,label]) => (
           <button key={id} className={`tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
@@ -163,9 +166,11 @@ export default function ResultsPage() {
         </div>
       )}
 
+      {tab === 'credit' && <CreditAssessment assessment={data.credit_assessment} />}
       {tab === 'transactions' && <TransactionTable transactions={data.raw_transactions || []} />}
       {tab === 'risk' && <RiskFlags flags={data.high_risk_flags || []} gambling={data.gambling_analysis} crypto={data.crypto_analysis} roundTrip={data.round_trip_analysis} hvcash={data.high_value_cash_analysis} />}
       {tab === 'tamper' && <TamperReport report={data.tamper_report} />}
+      {tab === 'feedback' && <FeedbackPanel requestId={data.request_id} />}
     </div>
   )
 }
