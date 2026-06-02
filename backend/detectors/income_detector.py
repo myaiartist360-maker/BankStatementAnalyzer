@@ -30,36 +30,99 @@ INCOME_RULES: list[tuple[str, str, tuple[str, ...]]] = [
 # Modes that, for credits, usually represent peer/business transfers in.
 TRANSFER_MODES = {"UPI", "IMPS", "NEFT", "RTGS"}
 
-_STOPWORDS = {
-    "UPI", "IMPS", "NEFT", "RTGS", "CR", "DR", "REF", "PAYMENT", "PAYME", "FROM",
-    "SENT", "USING", "FUND", "FUNDT", "TRANSFER", "ACH", "BANK", "LTD", "PVT",
-    "INDIA", "ONLINE", "RECD", "RECEIVED", "NA", "YES", "BAR", "IOB", "IDFB",
-    "HDFC", "ICIC", "SBIN", "AXIS", "KKBK", "PUNB", "UTIB",
+# Honorifics stripped before grouping so "Mr Sachin Gupta" == "SACHIN GUPTA".
+_HONORIFICS = {"MR", "MRS", "MS", "SHRI", "SMT", "DR", "SRI", "M S", "MS S"}
+
+# Bank/PSP handles that appear in the field right after the name.
+_BANK_HANDLES = {
+    "IOB", "KKB", "IDI", "UTI", "YESB", "BAR", "IND", "RATN", "IDFB", "IDIB",
+    "PUN", "HDFC", "ICIC", "SBIN", "AXIS", "KKBK", "PUNB", "UTIB", "YES", "PUNB",
+    "CNRB", "BARB", "KVBL", "FDRL", "INDB",
 }
+
+# Note / filler tokens that are never a payer name.
+_NOTE_TOKENS = {
+    "", "-", "NA", "SENT", "USING", "USIN", "US", "FROM", "PAYMENT", "PAYME",
+    "FUND", "FUNDT", "TRANSFER", "REF", "ONLINE", "INSTANT PAYMENT", "IMMEDIATE",
+    "RECD", "RECEIVED", "PAYMENT F", "SENT US", "SENT FROM", "PAYMENT FROM",
+}
+
+
+def _clean_name(s: str) -> str:
+    """Normalise a raw name fragment: drop non-alpha, honorifics, collapse spaces."""
+    s = re.sub(r"[^A-Za-z ]", " ", s or "")
+    s = re.sub(r"\s+", " ", s).strip()
+    words = [w for w in s.split(" ") if w.upper() not in _HONORIFICS]
+    return " ".join(words).strip()
 
 
 def _extract_counterparty(narration: str) -> Optional[str]:
     """
-    Pull a likely payer name out of a UPI/IMPS/NEFT narration.
-    e.g. 'IMPS/517814292140/SARATHI/IDIB/XXXXXX4164/Fund' -> 'SARATHI'
-         'NEFT-AXIS-ACME CORP SALARY' -> 'ACME CORP SALARY'
+    Pull the payer name out of a structured Indian-bank narration using the
+    field position for each rail (more reliable than a longest-token heuristic):
+
+      UPI:  UPI / <ref> / CR|DR / <NAME> / <handle> / <note>   -> field after CR/DR
+      IMPS: IMPS / <ref> / <NAME> / <bankcode> / <acct> / <note> -> field 2
+      NEFT: NEFT / <ref> / <NAME> / ...                          -> field 2
+
+    Returns a Title-Cased display name, or None when no clean name is present
+    (e.g. cash deposits, charges, interest).
     """
     if not narration:
         return None
-    parts = re.split(r"[\/\-\|]", narration.upper())
-    candidates: list[str] = []
-    for p in parts:
-        token = re.sub(r"[^A-Z &.]", " ", p).strip()
-        token = re.sub(r"\s+", " ", token)
-        if not token:
-            continue
-        words = [w for w in token.split(" ") if len(w) >= 3 and w not in _STOPWORDS]
-        if words:
-            candidates.append(" ".join(words))
-    if not candidates:
+    parts = [p.strip() for p in narration.split("/")]
+    up = narration.strip().upper()
+    name: Optional[str] = None
+
+    if up.startswith("UPI"):
+        for i, p in enumerate(parts):
+            if p.upper() in ("CR", "DR") and i + 1 < len(parts):
+                name = parts[i + 1]
+                break
+        if name is None and len(parts) >= 4:
+            name = parts[3]
+    elif up.startswith(("IMPS", "NEFT", "RTGS", "IFT")) and len(parts) >= 3:
+        name = parts[2]
+
+    name = _clean_name(name or "")
+    if not name:
         return None
-    # Prefer the longest meaningful candidate (usually the actual name).
-    return max(candidates, key=len).title()
+    upper = name.upper()
+    if upper in _BANK_HANDLES or upper in _NOTE_TOKENS or len(upper) < 3:
+        return None
+    return name.title()
+
+
+def _merge_subset_names(payers: dict[str, dict]) -> dict[str, dict]:
+    """
+    Fold partial names into their fuller form, e.g. 'SACHIN' -> 'SACHIN GUPTA',
+    when one name's word-set is a strict subset of another's. The longer name's
+    display is kept; counts and totals are summed.
+    """
+    keys = sorted(payers.keys(), key=lambda k: len(k.split()), reverse=True)
+    canonical: list[str] = []
+    remap: dict[str, str] = {}
+    for k in keys:
+        ktokens = set(k.split())
+        target = None
+        for c in canonical:
+            ctokens = set(c.split())
+            if ktokens < ctokens or ktokens == ctokens:
+                target = c
+                break
+        if target:
+            remap[k] = target
+        else:
+            canonical.append(k)
+            remap[k] = k
+
+    merged: dict[str, dict] = {}
+    for k, v in payers.items():
+        tgt = remap[k]
+        m = merged.setdefault(tgt, {"display": payers[tgt]["display"], "count": 0, "total": 0.0})
+        m["count"] += v["count"]
+        m["total"] = round(m["total"] + v["total"], 2)
+    return merged
 
 
 def _categorise(txn: dict) -> tuple[str, str]:
@@ -161,15 +224,23 @@ def analyze_income(transactions: list[dict], salary: Optional[dict] = None) -> d
     ]
 
     # Top payers / income sources by counterparty.
-    payers: dict[str, dict] = defaultdict(lambda: {"count": 0, "total": 0.0})
+    # Grouped by an UPPERCASE key so name variants merge; a Title-Case display
+    # name is kept for presentation. Cash deposits have no external payer.
+    payers: dict[str, dict] = defaultdict(lambda: {"display": "", "count": 0, "total": 0.0})
     for t in credits:
+        if _categorise(t)[0] == "CASH_DEPOSIT":
+            continue
         name = _extract_counterparty(t.get("narration", ""))
         if not name:
             continue
-        payers[name]["count"] += 1
-        payers[name]["total"] = round(payers[name]["total"] + t["credit_amount"], 2)
+        key = name.upper()
+        payers[key]["display"] = name
+        payers[key]["count"] += 1
+        payers[key]["total"] = round(payers[key]["total"] + t["credit_amount"], 2)
+    payers = _merge_subset_names(payers)
     top_payers = sorted(
-        ({"name": k, "count": v["count"], "total_amount": v["total"]} for k, v in payers.items()),
+        ({"name": v["display"], "count": v["count"], "total_amount": v["total"]}
+         for v in payers.values()),
         key=lambda x: x["total_amount"], reverse=True,
     )[:10]
 
