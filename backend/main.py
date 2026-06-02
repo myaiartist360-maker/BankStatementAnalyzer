@@ -24,7 +24,7 @@ from models.response_models import AnalysisResponse
 from utils.helpers import generate_request_id
 from pipeline.ingestion import ingest
 from pipeline.tamper import run_tamper_checks
-from pipeline.extraction import enrich_transactions, filter_by_period, build_metadata_out
+from pipeline.extraction import enrich_transactions, filter_by_period, build_metadata_out, ensure_chronological
 from pipeline.analysis import compute_analysis
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -184,6 +184,11 @@ async def analyse(request: AnalysisRequest):
                 "confidence_score": confidence,
                 "processing_notes": notes,
             })
+
+        # ── Normalise ordering (newest-first statements → chronological) ──────
+        raw_transactions, reorder_note = ensure_chronological(raw_transactions)
+        if reorder_note:
+            notes.append(reorder_note)
 
         # ── Step 2: Tamper Detection ─────────────────────────────────────────
         tamper_report = run_tamper_checks(

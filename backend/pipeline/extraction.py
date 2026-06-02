@@ -27,6 +27,31 @@ def is_reversal(narration: str) -> bool:
     return any(kw in upper for kw in REVERSAL_KEYWORDS)
 
 
+def ensure_chronological(transactions: list[dict]) -> tuple[list[dict], Optional[str]]:
+    """
+    Many banks (e.g. IOB, IDFC) print statements newest-first. Balance-continuity
+    and date-sequence tamper checks assume oldest-first order, so a legitimate
+    descending statement would be falsely flagged as tampered.
+
+    If the parsed rows are predominantly in descending date order, reverse the
+    whole list (which also restores correct intra-day ordering, since those rows
+    are reversed too). Returns (possibly-reordered list, note-or-None).
+    """
+    dated = [t.get("date") for t in transactions if t.get("date")]
+    if len(dated) < 2:
+        return transactions, None
+
+    asc = sum(1 for a, b in zip(dated, dated[1:]) if a <= b)
+    desc = sum(1 for a, b in zip(dated, dated[1:]) if a >= b)
+
+    if desc > asc:
+        return list(reversed(transactions)), (
+            "Statement was in newest-first order; reordered chronologically "
+            "before integrity checks and analysis"
+        )
+    return transactions, None
+
+
 def enrich_transactions(
     transactions: list[dict],
     aa_mode_override: bool = False,

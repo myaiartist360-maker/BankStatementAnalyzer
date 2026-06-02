@@ -55,6 +55,42 @@ export default function ResultsPage() {
 
   const s = data.summary || {}
   const sm = data.statement_metadata || {}
+  const notes = data.processing_notes || []
+  const isFailure = data.status && data.status !== 'SUCCESS'
+
+  // Lightweight severity tagging for the on-screen log
+  const noteLevel = (n) => {
+    const t = n.toLowerCase()
+    if (t.includes('error') || t.includes('failed') || t.includes('could not') || t.includes('no transactions')) return 'error'
+    if (t.includes('warning') || t.includes('skipped') || t.includes('decrypt') || t.includes('tamper') || t.includes('mismatch') || t.includes('reordered')) return 'warn'
+    return 'info'
+  }
+  const LEVEL_COLOR = { error: 'var(--red)', warn: 'var(--amber)', info: 'var(--text-muted)' }
+
+  const ProcessingLog = ({ open }) => (
+    <details className="card" open={open} style={{ marginBottom: 20, borderColor: isFailure ? 'var(--red)' : 'var(--glass-border)' }}>
+      <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+        <span>🪵</span> Processing Log ({notes.length})
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>extraction & integrity diagnostics</span>
+      </summary>
+      {notes.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 12 }}>No diagnostics emitted.</p>
+      ) : (
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, maxHeight: 320, overflowY: 'auto' }}>
+          {notes.map((n, i) => {
+            const lvl = noteLevel(n)
+            return (
+              <div key={i} style={{ display: 'flex', gap: 8, padding: '3px 6px', background: i % 2 ? 'rgba(255,255,255,0.02)' : 'transparent', borderRadius: 4 }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: 24, textAlign: 'right' }}>{i + 1}</span>
+                <span style={{ color: LEVEL_COLOR[lvl], minWidth: 48, textTransform: 'uppercase', fontSize: 10 }}>{lvl}</span>
+                <span style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{n}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </details>
+  )
 
   return (
     <div className="main-content">
@@ -75,6 +111,29 @@ export default function ResultsPage() {
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/')}>← New</button>
         </div>
       </div>
+
+      {/* Failure banner + diagnostics (shown prominently when not fully successful) */}
+      {isFailure && (
+        <>
+          <div className="card" style={{ marginBottom: 16, borderColor: 'var(--red)', background: 'var(--red-dim)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 28 }}>{data.status === 'PARTIAL' ? '⚠️' : '🚫'}</span>
+              <div>
+                <div style={{ fontWeight: 700, color: data.status === 'PARTIAL' ? 'var(--amber)' : 'var(--red)' }}>
+                  {data.status === 'EXTRACTION_FAILED' && 'Could not extract transactions'}
+                  {data.status === 'PDF_DECRYPT_FAILED' && 'Could not decrypt the PDF'}
+                  {data.status === 'TAMPER_DETECTED' && 'Integrity checks failed'}
+                  {data.status === 'PARTIAL' && 'Partial result'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  See the processing log below for the step-by-step diagnosis.
+                </div>
+              </div>
+            </div>
+          </div>
+          <ProcessingLog open={true} />
+        </>
+      )}
 
       {/* Confidence bar */}
       <div className="card" style={{ marginBottom: 20, padding: '14px 20px' }}>
@@ -150,19 +209,8 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {/* Processing notes */}
-          {data.processing_notes?.length > 0 && (
-            <div className="card">
-              <div className="section-title"><span>📝</span> Processing Notes</div>
-              <ul style={{ listStyle: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {data.processing_notes.map((n, i) => (
-                  <li key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 8 }}>
-                    <span style={{ color: 'var(--brand)' }}>›</span> {n}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Processing log (collapsed on success — already shown above on failure) */}
+          {!isFailure && notes.length > 0 && <ProcessingLog open={false} />}
         </div>
       )}
 
