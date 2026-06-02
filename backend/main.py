@@ -260,6 +260,7 @@ async def analyse(request: AnalysisRequest):
             "monthly_credits": analysis["monthly_credits"],
             "monthly_debits": analysis["monthly_debits"],
             "salary_analysis": analysis["salary_analysis"],
+            "income_analysis": analysis["income_analysis"],
             "emi_analysis": analysis["emi_analysis"],
             "bounce_analysis": analysis["bounce_analysis"],
             "gambling_analysis": analysis["gambling_analysis"],

@@ -72,6 +72,42 @@ class SalaryAnalysis(BaseModel):
     credit_dates: list[str] = Field(default_factory=list)
 
 
+# ── Income Analysis ───────────────────────────────────────────────────────────
+
+class IncomeSourceTxn(BaseModel):
+    date: Optional[str] = None
+    amount: float = 0.0
+    narration: str = ""
+    mode: Optional[str] = None
+
+
+class IncomeSource(BaseModel):
+    category: str
+    label: str
+    count: int = 0
+    total_amount: float = 0.0
+    monthly_average: float = 0.0
+    months_present: int = 0
+    recurring: bool = False
+    share_pct: float = 0.0
+    transactions: list[IncomeSourceTxn] = Field(default_factory=list)
+
+
+class TopPayer(BaseModel):
+    name: str
+    count: int = 0
+    total_amount: float = 0.0
+
+
+class IncomeAnalysis(BaseModel):
+    total_income: float = 0.0
+    regular_monthly_income: float = 0.0
+    regular_income_share: float = 0.0
+    monthly_breakdown: list[MonthlyBreakdown] = Field(default_factory=list)
+    sources: list[IncomeSource] = Field(default_factory=list)
+    top_payers: list[TopPayer] = Field(default_factory=list)
+
+
 # ── EMI Analysis ─────────────────────────────────────────────────────────────
 
 class EMIInstance(BaseModel):
@@ -253,6 +289,7 @@ class AnalysisResponse(BaseModel):
     monthly_credits: list[MonthlyBreakdown] = Field(default_factory=list)
     monthly_debits: list[MonthlyBreakdown] = Field(default_factory=list)
     salary_analysis: Optional[SalaryAnalysis] = None
+    income_analysis: Optional[IncomeAnalysis] = None
     emi_analysis: Optional[EMIAnalysis] = None
     gambling_analysis: Optional[GamblingAnalysis] = None
     crypto_analysis: Optional[CryptoAnalysis] = None

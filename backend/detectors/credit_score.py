@@ -65,6 +65,7 @@ def assess_creditworthiness(
     summary_bounces: dict,
     high_risk_flags: list[dict],
     min_balance_threshold: float,
+    regular_monthly_income: Optional[float] = None,
 ) -> dict:
     """
     Build the `credit_assessment` block. All inputs are already computed in
@@ -72,13 +73,19 @@ def assess_creditworthiness(
     """
 
     # ── Income & obligations ──────────────────────────────────────────────────
-    # Prefer detected salary as the stable income proxy; fall back to the
-    # average monthly credit (which includes non-salary inflows).
-    monthly_income = (
-        salary.get("probable_amount")
-        if salary.get("identified") and salary.get("probable_amount")
-        else avg_monthly_credit
-    ) or 0.0
+    # Income basis preference:
+    #   1. detected recurring salary (most reliable),
+    #   2. regular (recurring) monthly income from income categorisation,
+    #   3. average monthly credit (includes one-off inflows — least reliable).
+    if salary.get("identified") and salary.get("probable_amount"):
+        monthly_income = salary["probable_amount"]
+        income_basis = "detected_salary"
+    elif regular_monthly_income:
+        monthly_income = regular_monthly_income
+        income_basis = "recurring_income"
+    else:
+        monthly_income = avg_monthly_credit or 0.0
+        income_basis = "average_monthly_credit"
 
     monthly_emi = emi.get("probable_emi_amount") or 0.0
     # Treat each detected EMI cluster as a recurring obligation. We only have one
@@ -187,7 +194,7 @@ def assess_creditworthiness(
         "risk_band": risk_band,
         "recommendation": recommendation,
         "monthly_income_estimate": round(monthly_income, 2),
-        "income_basis": "detected_salary" if salary.get("identified") else "average_monthly_credit",
+        "income_basis": income_basis,
         "monthly_obligations_estimate": monthly_obligations,
         "foir": round(foir, 4) if foir is not None else None,
         "net_monthly_surplus": net_monthly_surplus,

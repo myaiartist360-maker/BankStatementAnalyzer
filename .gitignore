@@ -9,6 +9,10 @@ venv/
 backend/results/
 backend/feedback/
 backend/samples/
+samples/
+**/*.zip
+package-lock.json
+!frontend/package-lock.json
 
 # Node / frontend
 node_modules/

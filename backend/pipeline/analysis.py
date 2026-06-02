@@ -21,6 +21,7 @@ from detectors.gambling_detector import detect_gambling
 from detectors.crypto_detector import detect_crypto
 from detectors.roundtrip_detector import detect_round_trips
 from detectors.credit_score import assess_creditworthiness
+from detectors.income_detector import analyze_income
 
 
 def compute_analysis(
@@ -96,6 +97,7 @@ def compute_analysis(
 
     # ── Detectors ─────────────────────────────────────────────────────────────
     salary      = detect_salary(transactions)
+    income      = analyze_income(transactions, salary)
     emi         = detect_emi(transactions)
     gambling    = detect_gambling(transactions)
     crypto      = detect_crypto(transactions)
@@ -146,6 +148,7 @@ def compute_analysis(
         },
         high_risk_flags=flags,
         min_balance_threshold=settings.min_balance_threshold,
+        regular_monthly_income=income.get("regular_monthly_income"),
     )
 
     # ── Summary ───────────────────────────────────────────────────────────────
@@ -179,6 +182,7 @@ def compute_analysis(
         "monthly_credits": monthly_credits,
         "monthly_debits": monthly_debits,
         "salary_analysis": salary,
+        "income_analysis": income,
         "emi_analysis": emi,
         "bounce_analysis": {
             "inward_cheque_bounces": bounce_analysis["inward"],
