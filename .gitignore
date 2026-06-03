@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Generated PII / artifacts — never commit
+backend/results/
+backend/feedback/
+backend/samples/
+samples/
+**/*.zip
+package-lock.json
+!frontend/package-lock.json
+
+# Node / frontend
+node_modules/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db

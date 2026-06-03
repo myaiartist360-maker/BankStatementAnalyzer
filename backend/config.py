@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     backend_port: int = 8000
     results_dir: str = "results"
+    feedback_dir: str = "feedback"
 
     # ── Balance Thresholds ────────────────────────────────────────────────────
     min_balance_threshold: float = 10_000.0        # ₹10,000 MAB
@@ -82,14 +83,23 @@ CRYPTO_KEYWORDS: FrozenSet[str] = frozenset([
 ])
 
 # ── EMI / Bounce Patterns ─────────────────────────────────────────────────────
+# Aligned with the Master Narration Lexicon "Returns, Bounces & Charges" layer.
 INWARD_BOUNCE_PATTERNS: list[str] = [
-    "CHQ RETURN", "CHEQUE RETURN", "INWARD RETURN",
-    "INSTRUMENT RETURN", "DISHONOURED", "DISHONORED"
+    "I/W RETURN", "I/W RET", "INWARD RETURN", "INWARD CLG RETURN",
+    "CHQ DEP RETURN", "DEPOSITED CHEQUE RETURN", "RETURNED UNPAID",
+    "INSTRUMENT RETURN", "INW RETURN",
 ]
-OUTWARD_BOUNCE_PATTERNS: list[str] = ["OUTWARD RETURN"]
+OUTWARD_BOUNCE_PATTERNS: list[str] = [
+    "OUTWARD RETURN", "CHQ RETURN", "CHEQUE RETURN", "CHQ RTN", "CHEQUE RTN",
+    "DISHONOUR", "DISHONOURED", "DISHONORED", "FUNDS INSUFFICIENT",
+    "INSUFFICIENT FUNDS", "INSUFFICIENT BALANCE", "EXCEEDS ARRANGEMENT",
+    "REFER TO DRAWER", "NSF", "RETURN MEMO", "STOP PAYMENT", "ACCOUNT CLOSED",
+    "SIGNATURE DIFFERS", "EFFECTS NOT CLEARED",
+]
 EMI_BOUNCE_PATTERNS: list[str] = [
-    "NACH RETURN", "ECS RETURN", "SI FAILURE",
-    "MANDATE RETURN", "AUTO DEBIT RETURN"
+    "NACH RETURN", "NACH RTN", "ECS RETURN", "ECS RTN", "ACH RTN", "ACH RETURN",
+    "SI FAILURE", "MANDATE RETURN", "MANDATE FAIL", "AUTO DEBIT RETURN",
+    "AUTO DEBIT FAIL", "EMI BOUNCE",
 ]
 
 # ── High-Risk Narration Fragments ─────────────────────────────────────────────

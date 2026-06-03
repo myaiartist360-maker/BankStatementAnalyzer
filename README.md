@@ -10,8 +10,10 @@ Production-grade, tamper-aware bank statement analysis engine for Indian financi
 | **Password cracking** | 15+ Indian bank patterns (DOB, PAN, account last-4, mobile, customer ID) |
 | **Tamper detection** | 8 checks: PDF metadata, invisible text, digital signature, balance continuity, date sequence, duplicates, pixel anomalies, statistical outliers |
 | **Financial analysis** | EOD balance time-series, salary detection, EMI clustering, monthly breakdowns |
+| **Credit assessment** | Composite credit score (0–100) + risk band, FOIR, net surplus, savings rate, inflow/outflow ratio, income & balance volatility, explainable factors |
 | **Risk detection** | Gambling (24 keywords), crypto (7 exchanges), round-trip cycling, high-value cash, cheque/EMI bounces |
-| **Dashboard** | Dark-mode React/Vite UI with charts, filterable transaction table, tamper report |
+| **Feedback loop** | Analysts rate accuracy per section and submit corrections; stored as a tuning signal |
+| **Dashboard** | Dark-mode React/Vite UI with charts, filterable transaction table, tamper report, credit & feedback tabs |
 
 ---
 
@@ -75,8 +77,30 @@ npm run dev
 
 **Response statuses:** `SUCCESS` | `TAMPER_DETECTED` | `PDF_DECRYPT_FAILED` | `EXTRACTION_FAILED` | `PARTIAL`
 
+The response now also includes a `credit_assessment` block (score, band, FOIR,
+surplus, ratios, factors, recommendation) and `obligation_indicators`.
+
 ### `GET /api/v1/result/{request_id}`
 Fetch a previously cached analysis result.
+
+### `POST /api/v1/feedback`
+Submit analyst feedback on a result to improve the engine.
+
+```json
+{
+  "request_id": "<uuid>",
+  "overall_rating": 4,
+  "sections": { "salary_correct": true, "tamper_correct": false },
+  "corrected_salary_amount": 85000,
+  "false_positive_flags": ["GAMBLING_TRANSACTIONS"],
+  "missed_flags": ["undisclosed loan"],
+  "comments": "Salary was a quarterly bonus month.",
+  "reviewer": "analyst-07"
+}
+```
+
+### `GET /api/v1/feedback` · `GET /api/v1/feedback/{request_id}`
+Aggregate feedback (with average rating) / per-result feedback.
 
 ### `GET /api/v1/health`
 Health check.

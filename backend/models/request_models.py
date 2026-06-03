@@ -30,6 +30,39 @@ class StatementMetadata(BaseModel):
     bank_name: Optional[str] = None
 
 
+class SectionFeedback(BaseModel):
+    """Per-section correctness rating supplied by the reviewing analyst."""
+    salary_correct: Optional[bool] = None
+    emi_correct: Optional[bool] = None
+    tamper_correct: Optional[bool] = None
+    risk_flags_correct: Optional[bool] = None
+    transactions_parsed_correctly: Optional[bool] = None
+    credit_assessment_useful: Optional[bool] = None
+
+
+class FeedbackRequest(BaseModel):
+    """
+    Analyst feedback on an analysis result. Persisted as a training/QA signal so
+    the detection thresholds and heuristics can be tuned over time.
+    """
+    request_id: str = Field(..., description="The analysis result this feedback refers to")
+    overall_rating: Optional[int] = Field(
+        None, ge=1, le=5, description="1 (poor) – 5 (excellent) accuracy rating"
+    )
+    sections: Optional[SectionFeedback] = None
+    corrected_salary_amount: Optional[float] = Field(
+        None, description="Analyst-corrected monthly salary, if the engine got it wrong"
+    )
+    false_positive_flags: list[str] = Field(
+        default_factory=list, description="Flags the engine raised that are incorrect"
+    )
+    missed_flags: list[str] = Field(
+        default_factory=list, description="Risks the analyst expected but the engine missed"
+    )
+    comments: Optional[str] = Field(None, description="Free-text reviewer notes")
+    reviewer: Optional[str] = Field(None, description="Analyst name / id")
+
+
 class AnalysisRequest(BaseModel):
     input_type: Literal["pdf", "zip", "account_aggregator_json"]
 

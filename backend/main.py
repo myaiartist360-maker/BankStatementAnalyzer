@@ -19,12 +19,12 @@ from fastapi.responses import JSONResponse
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import settings
-from models.request_models import AnalysisRequest
+from models.request_models import AnalysisRequest, FeedbackRequest
 from models.response_models import AnalysisResponse
 from utils.helpers import generate_request_id
 from pipeline.ingestion import ingest
 from pipeline.tamper import run_tamper_checks
-from pipeline.extraction import enrich_transactions, filter_by_period, build_metadata_out
+from pipeline.extraction import enrich_transactions, filter_by_period, build_metadata_out, ensure_chronological
 from pipeline.analysis import compute_analysis
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -46,6 +46,9 @@ app.add_middleware(
 RESULTS_DIR = Path(settings.results_dir)
 RESULTS_DIR.mkdir(exist_ok=True)
 
+FEEDBACK_DIR = Path(settings.feedback_dir)
+FEEDBACK_DIR.mkdir(exist_ok=True)
+
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +63,64 @@ async def get_result(request_id: str):
     if not path.exists():
         raise HTTPException(status_code=404, detail="Result not found")
     return JSONResponse(content=json.loads(path.read_text(encoding="utf-8")))
+
+
+@app.post("/api/v1/feedback")
+async def submit_feedback(feedback: FeedbackRequest):
+    """
+    Capture analyst feedback on a result. Stored as a JSON line per submission so
+    the heuristics/thresholds can be reviewed and re-tuned against ground truth.
+    """
+    # Only persist feedback for results we actually produced.
+    result_path = RESULTS_DIR / f"{feedback.request_id}.json"
+    if not result_path.exists():
+        raise HTTPException(status_code=404, detail="Unknown request_id — no such analysis result")
+
+    record = feedback.model_dump()
+    record["submitted_at"] = datetime.utcnow().isoformat()
+
+    out_path = FEEDBACK_DIR / f"{feedback.request_id}.json"
+    # Append so multiple reviewers can comment on the same result.
+    existing: list[dict] = []
+    if out_path.exists():
+        try:
+            existing = json.loads(out_path.read_text(encoding="utf-8"))
+            if not isinstance(existing, list):
+                existing = [existing]
+        except Exception:
+            existing = []
+    existing.append(record)
+    out_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {"status": "ok", "request_id": feedback.request_id, "submissions": len(existing)}
+
+
+@app.get("/api/v1/feedback/{request_id}")
+async def get_feedback(request_id: str):
+    path = FEEDBACK_DIR / f"{request_id}.json"
+    if not path.exists():
+        return JSONResponse(content=[])
+    return JSONResponse(content=json.loads(path.read_text(encoding="utf-8")))
+
+
+@app.get("/api/v1/feedback")
+async def list_feedback():
+    """Aggregate feedback across all results — a lightweight model-quality dashboard feed."""
+    all_records: list[dict] = []
+    for fp in FEEDBACK_DIR.glob("*.json"):
+        try:
+            recs = json.loads(fp.read_text(encoding="utf-8"))
+            all_records.extend(recs if isinstance(recs, list) else [recs])
+        except Exception:
+            continue
+
+    rated = [r["overall_rating"] for r in all_records if r.get("overall_rating")]
+    summary = {
+        "total_submissions": len(all_records),
+        "results_with_feedback": len(list(FEEDBACK_DIR.glob("*.json"))),
+        "average_rating": round(sum(rated) / len(rated), 2) if rated else None,
+    }
+    return {"summary": summary, "feedback": all_records}
 
 
 @app.post("/api/v1/analyse")
@@ -123,6 +184,11 @@ async def analyse(request: AnalysisRequest):
                 "confidence_score": confidence,
                 "processing_notes": notes,
             })
+
+        # ── Normalise ordering (newest-first statements → chronological) ──────
+        raw_transactions, reorder_note = ensure_chronological(raw_transactions)
+        if reorder_note:
+            notes.append(reorder_note)
 
         # ── Step 2: Tamper Detection ─────────────────────────────────────────
         tamper_report = run_tamper_checks(
@@ -194,6 +260,8 @@ async def analyse(request: AnalysisRequest):
             "monthly_credits": analysis["monthly_credits"],
             "monthly_debits": analysis["monthly_debits"],
             "salary_analysis": analysis["salary_analysis"],
+            "income_analysis": analysis["income_analysis"],
+            "expense_analysis": analysis["expense_analysis"],
             "emi_analysis": analysis["emi_analysis"],
             "bounce_analysis": analysis["bounce_analysis"],
             "gambling_analysis": analysis["gambling_analysis"],
@@ -201,6 +269,8 @@ async def analyse(request: AnalysisRequest):
             "round_trip_analysis": analysis["round_trip_analysis"],
             "high_value_cash_analysis": analysis["high_value_cash_analysis"],
             "high_risk_flags": analysis["high_risk_flags"],
+            "obligation_indicators": analysis["obligation_indicators"],
+            "credit_assessment": analysis["credit_assessment"],
             "raw_transactions": filtered,
             "confidence_score": round(confidence, 3),
             "processing_notes": notes,

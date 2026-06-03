@@ -20,6 +20,9 @@ from detectors.emi_detector import detect_emi, detect_emi_bounces
 from detectors.gambling_detector import detect_gambling
 from detectors.crypto_detector import detect_crypto
 from detectors.roundtrip_detector import detect_round_trips
+from detectors.credit_score import assess_creditworthiness
+from detectors.income_detector import analyze_income
+from detectors.expense_detector import analyze_expenses
 
 
 def compute_analysis(
@@ -95,6 +98,8 @@ def compute_analysis(
 
     # ── Detectors ─────────────────────────────────────────────────────────────
     salary      = detect_salary(transactions)
+    income      = analyze_income(transactions, salary)
+    expenses    = analyze_expenses(transactions)
     emi         = detect_emi(transactions)
     gambling    = detect_gambling(transactions)
     crypto      = detect_crypto(transactions)
@@ -121,6 +126,32 @@ def compute_analysis(
         crypto,
         round_trips,
         hv_cash,
+    )
+
+    # ── Credit assessment (lending decision support) ───────────────────────────
+    credit_assessment = assess_creditworthiness(
+        monthly_credits=monthly_credits,
+        monthly_debits=monthly_debits,
+        avg_monthly_credit=avg_monthly_credit,
+        avg_monthly_debit=avg_monthly_debit,
+        avg_eod=avg_eod,
+        eod_series=eod_series,
+        salary=salary,
+        emi=emi,
+        obligation_indicators={
+            "loan_repayments_detected": loan_detected,
+            "insurance_premiums_detected": ins_detected,
+            "recurring_utility_payments": util_count,
+        },
+        summary_bounces={
+            "inward": bounce_analysis["inward"]["count"],
+            "outward": bounce_analysis["outward"]["count"],
+            "emi": emi_bounce["count"],
+        },
+        high_risk_flags=flags,
+        min_balance_threshold=settings.min_balance_threshold,
+        regular_monthly_income=income.get("regular_monthly_income"),
+        monthly_obligations=expenses.get("monthly_obligations"),
     )
 
     # ── Summary ───────────────────────────────────────────────────────────────
@@ -154,6 +185,8 @@ def compute_analysis(
         "monthly_credits": monthly_credits,
         "monthly_debits": monthly_debits,
         "salary_analysis": salary,
+        "income_analysis": income,
+        "expense_analysis": expenses,
         "emi_analysis": emi,
         "bounce_analysis": {
             "inward_cheque_bounces": bounce_analysis["inward"],
@@ -170,6 +203,7 @@ def compute_analysis(
             "insurance_premiums_detected": ins_detected,
             "recurring_utility_payments": util_count,
         },
+        "credit_assessment": credit_assessment,
     }
 
 

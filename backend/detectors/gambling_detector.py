@@ -4,7 +4,8 @@ BSA Engine — Gambling Transaction Detector
 
 from __future__ import annotations
 from collections import defaultdict
-from config import GAMBLING_KEYWORDS, settings
+from config import settings
+from lexicon import GAMBLING_REGEX
 
 
 def detect_gambling(transactions: list[dict]) -> dict:
@@ -20,8 +21,8 @@ def detect_gambling(transactions: list[dict]) -> dict:
     monthly: dict[str, dict] = defaultdict(lambda: {"amount": 0.0, "count": 0})
 
     for t in transactions:
-        narr = (t.get("narration") or "").upper()
-        if not any(kw in narr for kw in GAMBLING_KEYWORDS):
+        narr = t.get("narration") or ""
+        if not GAMBLING_REGEX.search(narr):
             continue
 
         amount = t.get("debit_amount") or t.get("credit_amount") or 0.0
