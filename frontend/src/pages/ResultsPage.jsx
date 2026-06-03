@@ -8,6 +8,7 @@ import MonthlyBreakdown from '../components/MonthlyBreakdown'
 import CreditAssessment from '../components/CreditAssessment'
 import FeedbackPanel from '../components/FeedbackPanel'
 import IncomeAnalysis from '../components/IncomeAnalysis'
+import ExpenseAnalysis from '../components/ExpenseAnalysis'
 import DrillDownModal from '../components/DrillDownModal'
 
 const API = '/api/v1'
@@ -279,7 +280,7 @@ export default function ResultsPage() {
 
       {/* Tabs */}
       <div className="tabs">
-        {[['overview','📊 Overview'],['income','💰 Income'],['credit','📈 Credit'],['transactions','📋 Transactions'],['risk','🚨 Risk'],['tamper','🔍 Tamper'],['feedback','💬 Feedback']].map(([id,label]) => (
+        {[['overview','📊 Overview'],['income','💰 Income'],['expenses','💸 Expenses'],['credit','📈 Credit'],['transactions','📋 Transactions'],['risk','🚨 Risk'],['tamper','🔍 Tamper'],['feedback','💬 Feedback']].map(([id,label]) => (
           <button key={id} className={`tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
@@ -336,6 +337,7 @@ export default function ResultsPage() {
       )}
 
       {tab === 'income' && <IncomeAnalysis income={data.income_analysis} onDrill={setDrill} />}
+      {tab === 'expenses' && <ExpenseAnalysis expense={data.expense_analysis} onDrill={setDrill} />}
       {tab === 'credit' && <CreditAssessment assessment={data.credit_assessment} />}
       {tab === 'transactions' && <TransactionTable transactions={data.raw_transactions || []} />}
       {tab === 'risk' && <RiskFlags flags={data.high_risk_flags || []} gambling={data.gambling_analysis} crypto={data.crypto_analysis} roundTrip={data.round_trip_analysis} hvcash={data.high_value_cash_analysis} />}

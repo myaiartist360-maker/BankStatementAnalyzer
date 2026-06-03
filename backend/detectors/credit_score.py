@@ -66,6 +66,7 @@ def assess_creditworthiness(
     high_risk_flags: list[dict],
     min_balance_threshold: float,
     regular_monthly_income: Optional[float] = None,
+    monthly_obligations: Optional[float] = None,
 ) -> dict:
     """
     Build the `credit_assessment` block. All inputs are already computed in
@@ -88,9 +89,12 @@ def assess_creditworthiness(
         income_basis = "average_monthly_credit"
 
     monthly_emi = emi.get("probable_emi_amount") or 0.0
-    # Treat each detected EMI cluster as a recurring obligation. We only have one
-    # cluster's amount here; utility/insurance presence nudges the burden up.
-    monthly_obligations = round(monthly_emi, 2)
+    # Prefer the lexicon-derived total of all fixed obligations (EMI + credit
+    # card + insurance + rent + MFI + KCC + education). Fall back to the single
+    # detected EMI cluster when expense categorisation is unavailable.
+    monthly_obligations = round(
+        monthly_obligations if monthly_obligations else monthly_emi, 2
+    )
 
     foir = _safe_div(monthly_obligations, monthly_income)  # 0..1 (lower better)
 

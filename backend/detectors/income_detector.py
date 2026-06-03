@@ -14,18 +14,7 @@ from collections import defaultdict
 from typing import Optional
 
 from utils.helpers import parse_date, round2
-
-
-# Category → (label, narration keywords). Order matters: first match wins.
-INCOME_RULES: list[tuple[str, str, tuple[str, ...]]] = [
-    ("SALARY",            "Salary / Payroll",        ("salary", "sal cr", "payroll", "wages", "stipend", "remuneration", "sal ")),
-    ("INTEREST",          "Interest Income",         ("interest", "int.pd", "int cr", "int credit", "int pd")),
-    ("INVESTMENT",        "Investments & Maturity",  ("dividend", "maturity", "redemption", "redeem", "mutual fund", " mf ", "fd ", "rd ", "sip", "tds refund")),
-    ("RENTAL",            "Rental Income",           ("rent",)),
-    ("REFUND",            "Refunds & Cashback",      ("refund", "cashback", "reversal", "reimbursement", "rev ")),
-    ("CASH_DEPOSIT",      "Cash Deposits",           ("cash dep", "cash deposit", "cdm", "by cash", "cash/")),
-    ("LOAN_DISBURSAL",    "Loan Disbursal",          ("loan disb", "disbursement", "loan credit", "od limit")),
-]
+from lexicon import classify_income, detect_channel
 
 # Modes that, for credits, usually represent peer/business transfers in.
 TRANSFER_MODES = {"UPI", "IMPS", "NEFT", "RTGS"}
@@ -126,12 +115,17 @@ def _merge_subset_names(payers: dict[str, dict]) -> dict[str, dict]:
 
 
 def _categorise(txn: dict) -> tuple[str, str]:
-    narr = (txn.get("narration") or "").lower()
-    for cat, label, keywords in INCOME_RULES:
-        if any(kw in narr for kw in keywords):
-            return cat, label
-    mode = txn.get("transaction_mode")
-    if mode in TRANSFER_MODES:
+    """Classify a credit into an income source via the master narration lexicon."""
+    narr = txn.get("narration") or ""
+    hit = classify_income(narr)
+    if hit:
+        key, label = hit
+        return key.upper(), label
+    # Fall back to channel — cash deposits vs peer/business transfers in.
+    channel = detect_channel(narr)
+    if channel == "cash":
+        return "CASH_DEPOSIT", "Cash Deposits"
+    if channel in ("transfer", "upi") or txn.get("transaction_mode") in TRANSFER_MODES:
         return "TRANSFER_IN", "Transfers In (UPI/IMPS/NEFT)"
     return "OTHER", "Other Credits"
 

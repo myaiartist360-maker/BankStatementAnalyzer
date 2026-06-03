@@ -4,9 +4,10 @@ const fmt = (n, d = 0) => n == null ? '—' : `₹${Number(n).toLocaleString('en
 const fmtK = n => `₹${(n / 1000).toFixed(0)}k`
 
 const CAT_ICON = {
-  SALARY: '💼', INTEREST: '🏦', INVESTMENT: '📈', RENTAL: '🏠',
-  REFUND: '↩️', CASH_DEPOSIT: '💵', LOAN_DISBURSAL: '🏧',
-  TRANSFER_IN: '🔁', OTHER: '➕',
+  SALARY: '💼', BUSINESS: '🏪', INTEREST: '🏦', RENT: '🏠',
+  FOREX_INWARD: '🌐', GOVT: '🏛️', MATURITY: '📈', TAX_REFUND: '🧾',
+  REFUND_REV: '↩️', CAPITAL: '💰', AGRI: '🌾', PIGMY: '🪙',
+  CASH_DEPOSIT: '💵', TRANSFER_IN: '🔁', OTHER: '➕',
 }
 
 const TXN_COLUMNS = [

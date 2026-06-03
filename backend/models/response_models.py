@@ -108,6 +108,29 @@ class IncomeAnalysis(BaseModel):
     top_payers: list[TopPayer] = Field(default_factory=list)
 
 
+# ── Expense / Obligation Analysis ─────────────────────────────────────────────
+
+class ExpenseCategory(BaseModel):
+    category: str
+    label: str
+    count: int = 0
+    total_amount: float = 0.0
+    monthly_average: float = 0.0
+    months_present: int = 0
+    recurring: bool = False
+    is_fixed_obligation: bool = False
+    share_pct: float = 0.0
+    transactions: list[IncomeSourceTxn] = Field(default_factory=list)
+
+
+class ExpenseAnalysis(BaseModel):
+    total_expense: float = 0.0
+    monthly_obligations: float = 0.0
+    fixed_obligation_share: float = 0.0
+    monthly_breakdown: list[MonthlyBreakdown] = Field(default_factory=list)
+    categories: list[ExpenseCategory] = Field(default_factory=list)
+
+
 # ── EMI Analysis ─────────────────────────────────────────────────────────────
 
 class EMIInstance(BaseModel):
@@ -290,6 +313,7 @@ class AnalysisResponse(BaseModel):
     monthly_debits: list[MonthlyBreakdown] = Field(default_factory=list)
     salary_analysis: Optional[SalaryAnalysis] = None
     income_analysis: Optional[IncomeAnalysis] = None
+    expense_analysis: Optional[ExpenseAnalysis] = None
     emi_analysis: Optional[EMIAnalysis] = None
     gambling_analysis: Optional[GamblingAnalysis] = None
     crypto_analysis: Optional[CryptoAnalysis] = None
